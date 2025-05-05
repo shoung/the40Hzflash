@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>40Hz 閃光刺激器</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: black;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #flashArea {
+            width: 100%;
+            height: 100%;
+            background-color: black;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #frequencyControl {
+            position: relative;
+            z-index: 2;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        #frequencyControl.hidden {
+            display: none;
+        }
+
+        #frequencySlider {
+            width: 300px;
+            margin: 10px 0;
+        }
+
+        #frequencyValue {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1.1em;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        dialog {
+            padding: 20px;
+            border-radius: 5px;
+            border: none;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        dialog::backdrop {
+            background: rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="flashArea"></div>
+    
+    <div id="frequencyControl">
+        <div id="frequencyValue">40 Hz</div>
+        <input type="range" id="frequencySlider" min="1" max="100" value="40">
+        <button id="startBtn">開始</button>
+    </div>
+
+    <dialog id="audioPermissionDialog">
+        <h2>需要音效權限</h2>
+        <p>請允許網頁播放音效以獲得完整體驗</p>
+        <button id="audioPermissionBtn">確定</button>
+    </dialog>
+
+    <script>
+        let isFlashing = false;
+        let frequency = 40;
+        let lastTime = 0;
+        let isWhite = false;
+        let audioContext;
+        let oscillator;
+        
+        const flashArea = document.getElementById('flashArea');
+        const frequencySlider = document.getElementById('frequencySlider');
+        const frequencyValue = document.getElementById('frequencyValue');
+        const audioPermissionDialog = document.getElementById('audioPermissionDialog');
+        const frequencyControl = document.getElementById('frequencyControl');
+
+        // 更新頻率顯示
+        frequencySlider.addEventListener('input', () => {
+            frequency = Number(frequencySlider.value);
+            frequencyValue.textContent = `${frequency} Hz`;
+            if (oscillator) {
+                oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+            }
+        });
+
+        // 初始化音頻
+        async function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.start();
+                return true;
+            } catch (error) {
+                console.error('音頻初始化失敗:', error);
+                return false;
+            }
+        }
+
+        // 閃爍動畫
+        function flash(currentTime) {
+            if (!isFlashing) return;
+
+            if (!lastTime) lastTime = currentTime;
+            const elapsed = currentTime - lastTime;
+            const period = 1000 / frequency / 2;
+
+            if (elapsed >= period) {
+                isWhite = !isWhite;
+                flashArea.style.backgroundColor = isWhite ? 'white' : 'black';
+                lastTime = currentTime;
+            }
+
+            requestAnimationFrame(flash);
+        }
+
+        // 開始按鈕事件
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            if (!audioContext) {
+                audioPermissionDialog.showModal();
+            } else {
+                startStimulation();
+            }
+        });
+
+        // 音頻權限按鈕事件
+        document.getElementById('audioPermissionBtn').addEventListener('click', async () => {
+            audioPermissionDialog.close();
+            const success = await initAudio();
+            if (success) {
+                startStimulation();
+            }
+        });
+
+        // 開始刺激
+        function startStimulation() {
+            isFlashing = true;
+            lastTime = 0;
+            requestAnimationFrame(flash);
+            document.documentElement.requestFullscreen();
+            frequencyControl.classList.add('hidden');
+        }
+
+        // 監聽全屏變更
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                isFlashing = false;
+                flashArea.style.backgroundColor = 'black';
+                if (oscillator) {
+                    oscillator.stop();
+                    oscillator = null;
+                    audioContext = null;
+                }
+                frequencyControl.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
+    <style>
+        #analyzerCanvas {
+            width: 300px;
+            height: 150px;
+            background: black;
+        }
+    </style>
